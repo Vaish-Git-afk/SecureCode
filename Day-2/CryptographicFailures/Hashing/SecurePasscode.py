@@ -1,70 +1,59 @@
 import bcrypt
+import json
+import os
 
-# In-memory database to store user credentials
-users_db = {}
+ADMIN_FILE = "admins.json"
 
-def hash_passcode(passcode):
-    """Securely hash the passcode using bcrypt."""
-    salt = bcrypt.gensalt()
-    hashed_passcode = bcrypt.hashpw(passcode.encode(), salt)
-    return hashed_passcode
+# Load admins from file
+def load_admins():
+    if os.path.exists(ADMIN_FILE):
+        with open(ADMIN_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
-def register_user():
-    """Register a new admin with a securely hashed passcode."""
-    username = input("Enter a username: ").strip()
-    
-    if username in users_db:
-        print("Username already exists. Choose a different one.")
-        return
-    
-    passcode = input("Enter a passcode: ").strip()
-    hashed_passcode = hash_passcode(passcode)
-    
-    # Store in the in-memory database
-    users_db[username] = hashed_passcode
+# Save admins to file
+def save_admins(admins):
+    with open(ADMIN_FILE, "w") as f:
+        json.dump(admins, f)
+
+# Register admin
+def register():
+    username = input("Enter a username: ")
+    passcode = input("Enter a passcode: ").encode("utf-8")
+    salt = bcrypt.gensalt(rounds=15)
+    hashed_passcode = bcrypt.hashpw(passcode, salt)
+
+    admins = load_admins()
+    admins[username] = hashed_passcode.decode("utf-8")
+    save_admins(admins)
+
     print("Registration successful!")
 
-def verify_login(username, passcode):
-    """Verify user login by checking hashed passcode."""
-    if username not in users_db:
+# Login admin
+def login():
+    username = input("Enter username: ")
+    passcode = input("Enter passcode: ").encode("utf-8")
+
+    admins = load_admins()
+
+    if username in admins and bcrypt.checkpw(passcode, admins[username].encode("utf-8")):
+        print("Login successful! Access granted.")
+        return True
+    else:
+        print("Invalid credentials!")
         return False
-    
-    hashed_passcode = users_db[username]
-    return bcrypt.checkpw(passcode.encode(), hashed_passcode)
 
-def login_user():
-    """Allow the admin to log in securely."""
-    attempts = 3
-    
-    while attempts > 0:
-        username = input("Enter username: ").strip()
-        passcode = input("Enter passcode: ").strip()
-        
-        if verify_login(username, passcode):
-            print("Login successful! Access granted.")
-            return True
-        else:
-            attempts -= 1
-            print(f"Login failed! Attempts left: {attempts}")
-    
-    print("Too many failed attempts. Account locked.")
-    return False
+# Main loop
+while True:
+    print("\n1. Register\n2. Login\n3. Exit")
+    choice = input("Choose an option: ")
 
-def main():
-    """Main menu to choose registration or login."""
-    while True:
-        print("\n1. Register\n2. Login\n3. Exit")
-        choice = input("Choose an option: ").strip()
-
-        if choice == "1":
-            register_user()
-        elif choice == "2":
-            login_user()
-        elif choice == "3":
-            print("Exiting...")
-            break
-        else:
-            print("Invalid choice. Try again.")
-
-if __name__ == "__main__":
-    main()
+    if choice == "1":
+        register()
+    elif choice == "2":
+        login()
+    elif choice == "3":
+        print("Exiting...")
+        break
+    else:
+        print("Invalid option! Try again.")
